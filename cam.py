@@ -16,14 +16,17 @@ BUFFER_IMAGES_PATH = data["device"]["STORAGE_PATH"]
 
 class MotionRecorder(object):
 
-    IMAGE_COUNTER_LIMIT = 60
-    CONTOUR_AREA_LIMIT = 100
+    IMAGE_COUNTER_LIMIT = 100
+    CONTOUR_AREA_LIMIT = 200
+    FRAMES_TO_SKIP = 5
+    
 
     hist_threshold = 500    # motion sensitivity => higher the value lesser the sensitivity
     #path = 0
     
     cap = cv2.VideoCapture("v4l2src device=/dev/video2 ! video/x-raw, width=640, height=480, framerate=60/1, format=(string)UYVY ! decodebin ! videoconvert ! appsink", cv2.CAP_GSTREAMER)
     #cap = cv2.VideoCapture("videotestsrc ! video/x-raw, format=I420, width=640, height=480 ! vpuenc_h264 ! appsink",cv2.CAP_GSTREAMER)
+    
     #subtractor = cv2.createBackgroundSubtractorMOG2()
     subtractor = cv2.createBackgroundSubtractorKNN()
     # FourCC is a 4-byte code used to specify the video codec. The list of available codes can be found in fourcc.org.
@@ -44,12 +47,13 @@ class MotionRecorder(object):
         
         return: hasimg'''
         
-        #SSH 198.162.8.1
-        #ENTAMOLOGIST
         mask = self.subtractor.apply(img)
         mask = cv2.medianBlur(mask, 5)
         kernel = np.ones((9, 9), np.uint8)
-        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel,iterations = 2)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel,iterations = 4)
+
+        # remove minute variations(gray 127) - consider only Major Movement (white patches 255)    
+        mask[mask == 127] = 0 # 0-> black
 
         contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         detections = []
@@ -58,20 +62,22 @@ class MotionRecorder(object):
             area = cv2.contourArea(cnt)
             if area > self.CONTOUR_AREA_LIMIT:
                 x, y, w, h = cv2.boundingRect(cnt)
-                detections.append([x, y, w, h])     
+                detections.append([x, y, w, h])
+
                 cv2.rectangle(img, (x, y), (x + w, y + h), (0, 255, 0), 3)
-        cv2.imshow("Frame", img)
+
+        #cv2.imshow("Frame", img)
         #cv2.imshow("Mask", mask)           
 
         # store frame details in json object
-        # frameIndex() X1,X2,Y1,Y2
+        # frameIndex X1,X2,Y1,Y2
         # todo;;;;;       
         cv2.destroyAllWindows()
 
         # if has boxes => valid frame else skip
         hasMovement = len(detections) > 0
 
-        return img, detections
+        return hasMovement, img, detections
 
     def start_storing_img_new(self, img):
         '''@vinay
@@ -83,22 +89,13 @@ class MotionRecorder(object):
         return None'''
 
         hasMovement, img, bbox = self.process_img_new(img)
-
-        if(self.skip_first_few_frames < 5): 
-            self.skip_first_few_frames += 1
-        else:
-            if hasMovement:
-                self.skip_counter = 0                
-                self.temp_img_for_video.append(img)
-                self.temp_img_bbox_for_video[self.img_counter] = bbox
-                self.img_counter += 1
-                if self.img_counter > self.IMAGE_COUNTER_LIMIT:
-                    self.save_recording()
-            else : 
-                self.skip_counter += 1
-                if self.skip_counter >= 5:
-                    self.save_recording() 
-
+        
+        if hasMovement:            
+            self.temp_img_for_video.append(img)
+            self.temp_img_bbox_for_video[self.img_counter] = bbox
+            self.img_counter += 1
+            if self.img_counter > self.IMAGE_COUNTER_LIMIT:
+                self.save_recording()
 
     def start_storing_img(self, img):
 
@@ -143,7 +140,7 @@ class MotionRecorder(object):
             
             # save json bbox
             json_file = open(json_fname, 'w')
-            json.dump(self.temp_img_bbox_for_video, json_fname)
+            json.dump(self.temp_img_bbox_for_video, json_file)
             json_file.close()
             log.info("Video bbox JSON crealog.info("")ted and saved -> "+json_fname)
 
@@ -170,8 +167,8 @@ class MotionRecorder(object):
         while True :
             available, frame = self.cap.read()
             if available :
-                #self.start_storing_img_new(frame)
-                cv2.imshow("Motion Recorder",frame)
+                self.start_storing_img_new(frame)
+                #cv2.imshow("Motion Recorder",frame)
                 if cv2.waitKey(1) & 0xFF == ord('x'):
                     break
 
