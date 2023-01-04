@@ -1,5 +1,5 @@
 # use this to show bounding box on image
-DEBUG = False
+DEBUG = True
 
 
 from PIL import Image
