@@ -93,7 +93,7 @@ class ImageCapture:
 
         now = datetime.now()
         img_name = f'{now.strftime("%d-%m-%Y_%H-%M-%S")}_{DEVICE_SERIAL_ID}.jpg'
-        cv.imwrite(img_name, self._curImg)
+        cv.imwrite(BUFFER_IMAGES_PATH+img_name, self._curImg)
 
         log.info("Image Saved -> " + img_name)
         print(img_name)
