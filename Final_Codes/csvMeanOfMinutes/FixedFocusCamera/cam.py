@@ -203,7 +203,7 @@ class MotionRecorder(object):
             self.img_count = 0
 
         
-        if hasMovement:
+        if hasMovement and self.last_second != now.second:
             # save image file
             self.temp_image_name = f'{now.strftime("%d-%m-%Y_%H-%M-%S-%f")}_{DEVICE_SERIAL_ID}.jpg'
             #self.save_recording(img)
@@ -213,7 +213,10 @@ class MotionRecorder(object):
             # assign count data                        
             self.img_count_sum += len(bbox)
             self.img_count += 1
-            
+        
+        if self.last_second != now.second:
+            self.last_second = now.second
+        
     
     def save_csv(self, timeNow):
         # save as count_timeFrame_deviceID_countMeanInt.csv
