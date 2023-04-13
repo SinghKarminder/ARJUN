@@ -75,7 +75,7 @@ class MotionRecorder(object):
     def _init_(self):
         pass
 
-   def get_cam_deviceID(self, VID_RESO, fps):
+    def get_cam_deviceID(self, VID_RESO, fps):
 
         # fetch which ever camera is working
         for i in range(0,3):
