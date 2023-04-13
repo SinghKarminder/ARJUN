@@ -43,8 +43,7 @@ BUFFER_IMAGES_PATH = data["device"]["STORAGE_PATH"]
 BUFFER_COUNT_PATH = data["device"]["COUNT_STORAGE_PATH"]
 
 class MotionRecorder(object):
-    
-    #VID_RESO = (1280,720)
+        
     VID_RESO = (640, 480)
     fps = 60
 
