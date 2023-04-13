@@ -32,6 +32,7 @@ from datetime import datetime
 import json
 import logging as log
 import csv
+import subprocess
 
 log.basicConfig(filename='/var/tmp/cam.log', filemode='w', level=log.INFO, format='[%(asctime)s]- %(message)s', datefmt='%d-%m-%Y %I:%M:%S %p')
 log.info("Cam script started..")
