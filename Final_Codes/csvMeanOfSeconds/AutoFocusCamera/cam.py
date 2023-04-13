@@ -10,6 +10,9 @@
 
 @algo: basic bg subtractor, no GLCM, use RGB plane norm if required to remove shadow
 
+@other: kills any other camera using programs to free busy cameras
+        also, auto detect cam devices available to capture video
+
 @author: vinay
 '''
 
@@ -29,6 +32,7 @@ from datetime import datetime
 import json
 import logging as log
 import csv
+import subprocess
 
 log.basicConfig(filename='/var/tmp/cam.log', filemode='w', level=log.INFO, format='[%(asctime)s]- %(message)s', datefmt='%d-%m-%Y %I:%M:%S %p')
 log.info("Cam script started..")
@@ -40,13 +44,13 @@ BUFFER_IMAGES_PATH = data["device"]["STORAGE_PATH"]
 BUFFER_COUNT_PATH = data["device"]["COUNT_STORAGE_PATH"]
 
 class MotionRecorder(object):
-    
-    #VID_RESO = (1280,720)
+        
     VID_RESO = (640, 480)
     fps = 60
 
     # video capture : from device
-    cap = cv2.VideoCapture(f"v4l2src device=/dev/video2 ! video/x-raw, width={VID_RESO[0]}, height={VID_RESO[1]}, framerate={fps}/1, format=(string)UYVY ! decodebin ! videoconvert ! appsink", cv2.CAP_GSTREAMER)
+    cap = None
+    #cap = cv2.VideoCapture(f"v4l2src device=/dev/video2 ! video/x-raw, width={VID_RESO[0]}, height={VID_RESO[1]}, framerate={fps}/1, format=(string)UYVY ! decodebin ! videoconvert ! appsink", cv2.CAP_GSTREAMER)
     #cap = cv2.VideoCapture("videotestsrc ! video/x-raw, format=I420, width=640, height=480 ! vpuenc_h264 ! appsink",cv2.CAP_GSTREAMER)
 
     # the background Subractors
@@ -68,6 +72,44 @@ class MotionRecorder(object):
     def _init_(self):
         pass
 
+    def get_cam_deviceID(self, VID_RESO, fps):
+
+        # fetch which ever camera is working
+        for i in range(0,3):
+            # first stop the device --if busy
+
+            output = None
+            pid = -1
+            try:        
+                output = subprocess.check_output(["fuser",f"/dev/video{i}"])                
+            except:
+                if LOG_DEBUG:
+                    print(f"No working cam at: /dev/video{i}")
+                pass
+            
+            if output:
+                output = output.decode('utf-8')
+                try:
+                    pid = int(output)
+                    # kill the busy process
+                    subprocess.call(["kill","-9",f"{pid}"])
+                except:
+                    pass
+
+            # get camera output
+            camera = cv2.VideoCapture(f"v4l2src device=/dev/video{i} ! video/x-raw, width={VID_RESO[0]}, height={VID_RESO[1]}, framerate={fps}/1, format=(string)UYVY ! decodebin ! videoconvert ! appsink", cv2.CAP_GSTREAMER)
+            while True:
+                success, frame = camera.read()  # read the camera frame
+                camera.release()
+                if not success:                
+                    break
+                else:
+                    if LOG_DEBUG:
+                        print(f"Found working cam at: /dev/video{i}")
+                    return i
+
+        return 2    
+    
     def process_img(self, frame):
         store = frame
         
@@ -251,6 +293,9 @@ class MotionRecorder(object):
 
             
     def start(self):
+        camID = self.get_cam_deviceID(self.VID_RESO, self.fps)
+        self.cap = cv2.VideoCapture(f"v4l2src device=/dev/video{camID} ! video/x-raw, width={self.VID_RESO[0]}, height={self.VID_RESO[1]}, framerate={self.fps}/1, format=(string)UYVY ! decodebin ! videoconvert ! appsink", cv2.CAP_GSTREAMER)
+
         log.info("Cam started functioning")
 
         #fCount = 0
