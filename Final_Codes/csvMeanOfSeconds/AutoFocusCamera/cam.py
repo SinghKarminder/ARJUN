@@ -24,6 +24,10 @@ LOG_DEBUG = False
 
 #us RGB plane normalization ?
 USE_RGB_NORM = False
+
+# max images per second (atmost 8-10 are possible per seconds)
+# default 1 
+MAX_IMAGES_PERSEC = 1
 #---------------------
 
 import cv2
@@ -237,7 +241,7 @@ class MotionRecorder(object):
             self.img_count = 0
 
         
-        if hasMovement and self.last_second != now.second:
+        if hasMovement and (self.img_count < MAX_IMAGES_PERSEC):
 
             # save image file
             self.temp_image_name = f'{now.strftime("%d-%m-%Y_%H-%M-%S-%f")}_{DEVICE_SERIAL_ID}.jpg'
