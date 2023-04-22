@@ -193,7 +193,7 @@ def get_cam_deviceID(VID_RESO, fps):
             else:
                 return i
 
-    return 2
+    return -1
 
 def gen_frames():  # generate frame by frame from camera
     camera = cv2.VideoCapture("/usr/sbin/device-manager/DeviceManager/render.mp4")  # use 0 for web camera
@@ -228,7 +228,9 @@ def gen_frames():  # generate frame by frame from camera
 
     # video capture : from device
 
-    camID = get_cam_deviceID(VID_RESO, fps)
+    camID = -1
+    while camID == -1:
+        camID = get_cam_deviceID(VID_RESO, fps)
     camera = cv2.VideoCapture(f"v4l2src device=/dev/video{camID} ! video/x-raw, width={VID_RESO[0]}, height={VID_RESO[1]}, framerate={fps}/1, format=(string)UYVY ! decodebin ! videoconvert ! appsink", cv2.CAP_GSTREAMER)
     #camera = cv2.VideoCapture(2)  # use 0 for web camera
     #camera.set(cv2.CAP_PROP_FPS,60)
