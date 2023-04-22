@@ -20,7 +20,7 @@
 FRAME_DEBUG = False
 
 # use this to show on console when files are created
-LOG_DEBUG = True
+LOG_DEBUG = False
 
 #us RGB plane normalization ?
 USE_RGB_NORM = False
