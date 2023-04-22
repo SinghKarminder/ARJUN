@@ -62,6 +62,11 @@ class MotionRecorder(object):
     #VID_RESO, FPS = (3840,2160), 15
     #VID_RESO, FPS = (3840,2160), 7.5
     #VID_RESO, FPS = (4096,2160), 7.5
+    #VID_RESO, fps = (1920,1080), 60
+    #VID_RESO, fps = (1920,1080), 30
+    #VID_RESO, fps = (1280,720), 60
+    #VID_RESO, fps = (1280,720), 30
+    #VID_RESO, FPS = (640, 480), 120
 
     # video capture : from device
     cap = None
