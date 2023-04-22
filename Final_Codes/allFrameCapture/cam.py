@@ -244,7 +244,7 @@ class MotionRecorder(object):
             self.img_count = 0
 
         
-        if hasMovement or True:
+        if hasMovement:
 
             # save image file
             self.temp_image_name = f'{now.strftime("%d-%m-%Y_%H-%M-%S-%f")}_{DEVICE_SERIAL_ID}.jpg'
