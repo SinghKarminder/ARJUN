@@ -42,22 +42,22 @@ BUFFER_COUNT_PATH = data["device"]["COUNT_STORAGE_PATH"]
 class MotionRecorder(object):
     
     # for Fixedfocus
-    #VID_RESO, fps = (1920,1080), 60
-    #VID_RESO, fps = (1920,1200), 55
-    #VID_RESO, fps = (1280,720), 120
-    #VID_RESO, fps = (1280,720), 60
+    VID_RESO, FPS = (1920,1080), 60
+    #VID_RESO, FPS = (1920,1200), 55
+    #VID_RESO, FPS = (1280,720), 120
+    #VID_RESO, FPS = (1280,720), 60
 
     # for AutoFocus
-    VID_RESO, FPS = (640, 480), 60    
+    #VID_RESO, FPS = (640, 480), 60    
     #VID_RESO, FPS = (4208,3120), 9
     #VID_RESO, FPS = (4208,3120), 4.5
     #VID_RESO, FPS = (3840,2160), 15
     #VID_RESO, FPS = (3840,2160), 7.5
     #VID_RESO, FPS = (4096,2160), 7.5
-    #VID_RESO, fps = (1920,1080), 60
-    #VID_RESO, fps = (1920,1080), 30
-    #VID_RESO, fps = (1280,720), 60
-    #VID_RESO, fps = (1280,720), 30
+    #VID_RESO, FPS = (1920,1080), 60
+    #VID_RESO, FPS = (1920,1080), 30
+    #VID_RESO, FPS = (1280,720), 60
+    #VID_RESO, FPS = (1280,720), 30
     #VID_RESO, FPS = (640, 480), 120
 
 

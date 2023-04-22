@@ -161,7 +161,7 @@ def login():
             return redirect(url_for('dashboard'))
     return render_template('login.html')
 
-def get_cam_deviceID(VID_RESO, fps):
+def get_cam_deviceID(VID_RESO, FPS):
 
     # fetch which ever camera is working
     for i in range(0,3):
@@ -184,7 +184,7 @@ def get_cam_deviceID(VID_RESO, fps):
                 pass
 
         # get camera output
-        camera = cv2.VideoCapture(f"v4l2src device=/dev/video{i} ! video/x-raw, width={VID_RESO[0]}, height={VID_RESO[1]}, framerate={fps}/1, format=(string)UYVY ! decodebin ! videoconvert ! appsink", cv2.CAP_GSTREAMER)
+        camera = cv2.VideoCapture(f"v4l2src device=/dev/video{i} ! video/x-raw, width={VID_RESO[0]}, height={VID_RESO[1]}, framerate={FPS}/1, format=(string)UYVY ! decodebin ! videoconvert ! appsink", cv2.CAP_GSTREAMER)
         while True:
             success, frame = camera.read()  # read the camera frame
             camera.release()
@@ -213,10 +213,10 @@ def gen_frames():  # generate frame by frame from camera
     subprocess.call(["systemctl","stop","cam"])
 
     # for fixed focus
-    #VID_RESO, fps = (1920,1080), 60
-    #VID_RESO, fps = (1920,1200), 55
-    #VID_RESO, fps = (1280,720), 120
-    VID_RESO, fps = (1280,720), 60
+    VID_RESO, FPS = (1920,1080), 60
+    #VID_RESO, FPS = (1920,1200), 55
+    #VID_RESO, FPS = (1280,720), 120
+    #VID_RESO, FPS = (1280,720), 60
     
     # for AutoFocus
     #VID_RESO, FPS = (640, 480), 60
@@ -225,18 +225,18 @@ def gen_frames():  # generate frame by frame from camera
     #VID_RESO, FPS = (3840,2160), 15
     #VID_RESO, FPS = (3840,2160), 7.5
     #VID_RESO, FPS = (4096,2160), 7.5
-    #VID_RESO, fps = (1920,1080), 60
-    #VID_RESO, fps = (1920,1080), 30
-    #VID_RESO, fps = (1280,720), 60
-    #VID_RESO, fps = (1280,720), 30
+    #VID_RESO, FPS = (1920,1080), 60
+    #VID_RESO, FPS = (1920,1080), 30
+    #VID_RESO, FPS = (1280,720), 60
+    #VID_RESO, FPS = (1280,720), 30
     #VID_RESO, FPS = (640, 480), 120
 
     # video capture : from device
 
     camID = -1
     while camID == -1:
-        camID = get_cam_deviceID(VID_RESO, fps)
-    camera = cv2.VideoCapture(f"v4l2src device=/dev/video{camID} ! video/x-raw, width={VID_RESO[0]}, height={VID_RESO[1]}, framerate={fps}/1, format=(string)UYVY ! decodebin ! videoconvert ! appsink", cv2.CAP_GSTREAMER)
+        camID = get_cam_deviceID(VID_RESO, FPS)
+    camera = cv2.VideoCapture(f"v4l2src device=/dev/video{camID} ! video/x-raw, width={VID_RESO[0]}, height={VID_RESO[1]}, framerate={FPS}/1, format=(string)UYVY ! decodebin ! videoconvert ! appsink", cv2.CAP_GSTREAMER)
     #camera = cv2.VideoCapture(2)  # use 0 for web camera
     #camera.set(cv2.CAP_PROP_FPS,60)
     #camera.set(cv2.CAP_PROP_FRAME_WIDTH,640)

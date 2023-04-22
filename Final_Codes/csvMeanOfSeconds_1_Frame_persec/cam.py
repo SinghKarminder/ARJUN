@@ -50,10 +50,10 @@ BUFFER_COUNT_PATH = data["device"]["COUNT_STORAGE_PATH"]
 class MotionRecorder(object):
     
     # for fixed focus
-    VID_RESO, fps = (1920,1080), 60
-    #VID_RESO, fps = (1920,1200), 55
-    #VID_RESO, fps = (1280,720), 120
-    #VID_RESO, fps = (1280,720), 60
+    VID_RESO, FPS = (1920,1080), 60
+    #VID_RESO, FPS = (1920,1200), 55
+    #VID_RESO, FPS = (1280,720), 120
+    #VID_RESO, FPS = (1280,720), 60
 
     # for AutoFocus
     #VID_RESO, FPS = (640, 480), 60
@@ -62,15 +62,15 @@ class MotionRecorder(object):
     #VID_RESO, FPS = (3840,2160), 15
     #VID_RESO, FPS = (3840,2160), 7.5
     #VID_RESO, FPS = (4096,2160), 7.5
-    #VID_RESO, fps = (1920,1080), 60
-    #VID_RESO, fps = (1920,1080), 30
-    #VID_RESO, fps = (1280,720), 60
-    #VID_RESO, fps = (1280,720), 30
+    #VID_RESO, FPS = (1920,1080), 60
+    #VID_RESO, FPS = (1920,1080), 30
+    #VID_RESO, FPS = (1280,720), 60
+    #VID_RESO, FPS = (1280,720), 30
     #VID_RESO, FPS = (640, 480), 120
 
     # video capture : from device
     cap = None
-    #cap = cv2.VideoCapture(f"v4l2src device=/dev/video2 ! video/x-raw, width={VID_RESO[0]}, height={VID_RESO[1]}, framerate={fps}/1, format=(string)UYVY ! decodebin ! videoconvert ! appsink", cv2.CAP_GSTREAMER)
+    #cap = cv2.VideoCapture(f"v4l2src device=/dev/video2 ! video/x-raw, width={VID_RESO[0]}, height={VID_RESO[1]}, framerate={FPS}/1, format=(string)UYVY ! decodebin ! videoconvert ! appsink", cv2.CAP_GSTREAMER)
     #cap = cv2.VideoCapture("videotestsrc ! video/x-raw, format=I420, width=640, height=480 ! vpuenc_h264 ! appsink",cv2.CAP_GSTREAMER)
 
     # the background Subractors
@@ -92,7 +92,7 @@ class MotionRecorder(object):
     def _init_(self):
         pass
 
-    def get_cam_deviceID(self, VID_RESO, fps):
+    def get_cam_deviceID(self, VID_RESO, FPS):
 
         # fetch which ever camera is working
         for i in range(0,3):
@@ -117,7 +117,7 @@ class MotionRecorder(object):
                     pass
 
             # get camera output
-            camera = cv2.VideoCapture(f"v4l2src device=/dev/video{i} ! video/x-raw, width={VID_RESO[0]}, height={VID_RESO[1]}, framerate={fps}/1, format=(string)UYVY ! decodebin ! videoconvert ! appsink", cv2.CAP_GSTREAMER)
+            camera = cv2.VideoCapture(f"v4l2src device=/dev/video{i} ! video/x-raw, width={VID_RESO[0]}, height={VID_RESO[1]}, framerate={FPS}/1, format=(string)UYVY ! decodebin ! videoconvert ! appsink", cv2.CAP_GSTREAMER)
             while True:
                 success, frame = camera.read()  # read the camera frame
                 camera.release()
@@ -315,9 +315,9 @@ class MotionRecorder(object):
     def start(self):
         camID = -1
         while camID == -1:
-            camID = self.get_cam_deviceID(self.VID_RESO, self.fps)
+            camID = self.get_cam_deviceID(self.VID_RESO, self.FPS)
 
-        self.cap = cv2.VideoCapture(f"v4l2src device=/dev/video{camID} ! video/x-raw, width={self.VID_RESO[0]}, height={self.VID_RESO[1]}, framerate={self.fps}/1, format=(string)UYVY ! decodebin ! videoconvert ! appsink", cv2.CAP_GSTREAMER)
+        self.cap = cv2.VideoCapture(f"v4l2src device=/dev/video{camID} ! video/x-raw, width={self.VID_RESO[0]}, height={self.VID_RESO[1]}, framerate={self.FPS}/1, format=(string)UYVY ! decodebin ! videoconvert ! appsink", cv2.CAP_GSTREAMER)
 
         log.info("Cam started functioning")
 
