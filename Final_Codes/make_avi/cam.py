@@ -277,7 +277,7 @@ class MotionRecorder(object):
             self.img_count = 0
 
         
-        if (hasMovement or True) and (self.img_count < MAX_IMAGES_PERSEC):
+        if hasMovement and (self.img_count < MAX_IMAGES_PERSEC):
 
             if SAVE_AS_VIDEO:
                 self.temp_img_for_video.append(img)
