@@ -239,7 +239,7 @@ class MotionRecorder(object):
 
         return hasMovement, frame, detections, sizes
 
-    def Collate(self, img, bboxes, sizes):
+    def Collate(img, bboxes, sizes):
         '''Crop detected regions and merge as single image'''
         
         #get new positions         
