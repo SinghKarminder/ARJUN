@@ -191,6 +191,9 @@ class MotionRecorder(object):
         contours, _ = cv2.findContours(imgOut2, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         
         detectionsRed = []
+        # need for closepacking of cropped images
+        sizesRed = []
+        
         for cnt in contours:
             area = cv2.contourArea(cnt)            
             x, y, w, h = cv2.boundingRect(cnt)
@@ -199,11 +202,14 @@ class MotionRecorder(object):
 
             if self.CONTOUR_AREA_LIMIT < area:
                 detectionsRed.append([x, y, w, h])
+                sizesRed.append([w,h])
         
         contours, _ = cv2.findContours(imgOut3, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         numberofObjects = 0
         
         detections = []
+        # need for closepacking of cropped images
+        sizes = []
 
         for cnt in contours:            
             area = cv2.contourArea(cnt)            
@@ -224,8 +230,10 @@ class MotionRecorder(object):
 
                 if thisEnclosedCount < 2:
                     detections.append([x, y, w, h])
+                    sizes.append([w,h])
                 else:
                     detections.extend(enclosedRed)
+                    sizes.extend(sizesRed)
 
         #------------------
         # display cntrs
@@ -241,18 +249,17 @@ class MotionRecorder(object):
 
         hasMovement = len(detections) > 0
 
-        return hasMovement, frame, detections
+        return hasMovement, frame, detections, sizes
 
-    def Collate(self, img, bboxes):
+    def Collate(self, img, bboxes, sizes):
         '''Crop detected regions and merge as single image'''
 
-        #get new positions
-        sizes = [bx[1] for bx in bboxes] 
+        #get new positions        
         pos = rpack.pack(sizes)
         #print(type(pos))
 
         sizes = np.array(sizes)
-        positions = np.asarray(pos,dtype=np.uint32)
+        positions = np.array(pos)
 
 #        print(positions)
 
@@ -283,13 +290,13 @@ class MotionRecorder(object):
 
     def start_storing_img(self, img):
         
-        hasMovement, img2, bbox = self.process_img(img)
+        hasMovement, img2, bbox, sizes = self.process_img(img)
         if FRAME_DEBUG:
             img = img2
             hasMovement = True
         
         elif CROP_IMAGES:            
-            img = MotionRecorder.Collate(img, bbox)
+            img = MotionRecorder.Collate(img, bbox, sizes)
 
         # get current time
         now = datetime.now()
