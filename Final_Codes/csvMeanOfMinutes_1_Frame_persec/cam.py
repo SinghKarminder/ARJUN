@@ -16,6 +16,9 @@
 @author: vinay
 '''
 
+#use image crop
+CROP_IMAGES = False
+
 # use this to display bounding boxes
 FRAME_DEBUG = False
 
@@ -40,6 +43,8 @@ import json
 import logging as log
 import csv
 import subprocess
+#pip install rectangle-packer
+import rpack
 
 log.basicConfig(filename='/var/tmp/cam.log', filemode='w', level=log.INFO, format='[%(asctime)s]- %(message)s', datefmt='%d-%m-%Y %I:%M:%S %p')
 log.info("Cam script started..")
@@ -238,13 +243,53 @@ class MotionRecorder(object):
 
         return hasMovement, frame, detections
 
+    def Collate(self, img, bboxes):
+        '''Crop detected regions and merge as single image'''
+
+        #get new positions
+        sizes = [bx[1] for bx in bboxes] 
+        pos = rpack.pack(sizes)
+        #print(type(pos))
+
+        sizes = np.array(sizes)
+        positions = np.asarray(pos,dtype=np.uint32)
+
+#        print(positions)
+
+        # get maxY and maxX 
+        reqH = max(sizes+positions, key=lambda x: x[0])[0]
+        reqW = max(sizes+positions, key=lambda x: x[1])[1]
+        
+        reqH = reqW = max(reqW, reqH)
+
+        #print(reqH, reqH)
+
+        newImg = np.zeros((reqH,reqW,3), np.uint8)
+
+        for i in range(len(positions)):
+            # copy pixels from img to newImg
+            y1, x1 = bboxes[i][0]
+            h, l = sizes[i]
+
+            y,x = positions[i]
+            #print(x,x+l,y,y+h)
+            #print(x1,x1+l,y1,y1+h)
+
+            newImg[x:x+l,y:y+h] = img[x1:x1+l,y1:y1+h]
+        
+        #cv2.imshow("ImgOut", newImg)
+        
+        return newImg
 
     def start_storing_img(self, img):
         
         hasMovement, img2, bbox = self.process_img(img)
         if FRAME_DEBUG:
             img = img2
-            #hasMovement = True
+            hasMovement = True
+        
+        elif CROP_IMAGES:            
+            img = MotionRecorder.Collate(img, bbox)
 
         # get current time
         now = datetime.now()
