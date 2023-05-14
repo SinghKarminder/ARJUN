@@ -4,6 +4,7 @@
 @dscp:  this code creates csv every minute with mean_count of every seconds        
         also saves images in which movement is detected
 @algo: basic bg subtractor, no GLCM, use RGB plane norm if required to remove shadow
+@packing: crop & pack bounding boxes, merge nearby
 @author: vinay
 '''
 
@@ -75,6 +76,8 @@ class MotionRecorder(object):
     
     CONTOUR_AREA_LIMIT = 10
     SKIP_FRAMES = 5
+
+    BOX_MERGE_MAX_DIST = 30
     
     img_mean_persec_list = []    
     img_count_sum = 0
@@ -238,13 +241,46 @@ class MotionRecorder(object):
                 cv2.rectangle(frame, (x, y), (x + w, y + h), (0,255, 0), 1)
                 #cv2.drawContours(store, [cnt], -1, (255,0,0),2)
                 numberofObjects = numberofObjects + 1
-                cv2.putText(store,str(numberofObjects), (x,y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2, cv2.LINE_8)              
+                cv2.putText(store,str(numberofObjects), (x,y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2, cv2.LINE_8)
 
             cv2.putText(store,"Number of objects: " + str(len(detections)), (10,50), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1, cv2.LINE_8)
 
         hasMovement = len(detections) > 0 and len(detections) < 50
 
         return hasMovement, frame, detections, sizes
+
+    def merge_boxes(boxes, DIST):        
+        merged_boxes = []
+
+        for box in boxes:
+            # Create a temp copy of box
+            new_box = box
+
+            # check if this overlap with merged boxes
+            overlaps = []
+            for mb in merged_boxes:
+                if (box[0] + box[2] + DIST >= mb[0] and mb[0] + mb[2] + DIST >= box[0] and
+                    box[1] + box[3] + DIST >= mb[1] and mb[1] + mb[3] + DIST >= box[1]):
+                    overlaps.append(mb)
+
+            if len(overlaps) > 0:
+                # merge all overlapping boxes into a single new merged box
+                overlaps.append(box)
+                new_box = (min([b[0] for b in overlaps]), min([b[1] for b in overlaps]),
+                        max([b[0]+b[2] for b in overlaps])-min([b[0] for b in overlaps]),
+                        max([b[1]+b[3] for b in overlaps])-min([b[1] for b in overlaps]))
+
+                # Remove all overlapping boxes from the list of merged boxes
+                merged_boxes = [mb for mb in merged_boxes if mb not in overlaps]
+
+            # Add the new or merged box to the list of merged boxes
+            merged_boxes.append(new_box)
+
+            # get there sizes
+            sizes = [[b[2],b[3]] for b in merged_boxes]
+
+        return merged_boxes, sizes
+
 
     def Collate(img, bboxes, sizes):
         '''Crop detected regions and merge as single image'''
@@ -309,8 +345,12 @@ class MotionRecorder(object):
 
         if not hasMovement: return
 
-        #elif CROP_IMAGES:
-        img = MotionRecorder.Collate(img, bbox, sizes)
+        # merge nearby boxes
+        # twice to merge new overlapping ones
+        merged_bboxes, sizes = merge_boxes ( merge_boxes(bbox, DIST= self.BOX_MERGE_MAX_DIST), 0)
+
+        # collate
+        img = MotionRecorder.Collate(img, merged_bboxes, sizes)
 
         # get current time
         now = datetime.now()
