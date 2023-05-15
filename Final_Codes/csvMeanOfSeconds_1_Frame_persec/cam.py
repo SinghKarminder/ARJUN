@@ -91,6 +91,8 @@ class MotionRecorder(object):
     fourcc = cv2.VideoWriter_fourcc(*'DIVX')     # for windows
     
     CONTOUR_AREA_LIMIT = 10
+
+    BOX_MERGE_MAX_DIST = 30
     
     img_mean_persec_list = []    
     img_count_sum = 0
