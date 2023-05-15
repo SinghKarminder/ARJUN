@@ -11,6 +11,9 @@
 #use image crop
 CROP_IMAGES = True
 
+# save CSV
+SAVE_CSV = False
+
 # use this to display bounding boxes
 FRAME_DEBUG = False
 
@@ -345,9 +348,10 @@ class MotionRecorder(object):
 
         if not hasMovement: return
 
-        # merge nearby boxes
+        # merge nearby boxes        
+        merged_bboxes, _ = MotionRecorder.merge_boxes(bbox,MotionRecorder.BOX_MERGE_MAX_DIST)
         # twice to merge new overlapping ones
-        merged_bboxes, sizes = merge_boxes ( merge_boxes(bbox, DIST= self.BOX_MERGE_MAX_DIST), 0)
+        merged_bboxes, sizes = MotionRecorder.merge_boxes( merged_bboxes, 0 )
 
         # collate
         img = MotionRecorder.Collate(img, merged_bboxes, sizes)
@@ -360,7 +364,7 @@ class MotionRecorder(object):
             self.last_minute = now.minute
         elif self.last_minute != now.minute:
             # if sec changes, save last second count data            
-            self.save_csv(now)
+            if SAVE_CSV: self.save_csv(now)
             #reset all
             self.last_minute = now.minute
             self.img_mean_persec_list = []
@@ -467,5 +471,6 @@ log.info("Script ended")
 
 # to send this file over ssh to device 
 # scp {source_path} root@192.168.8.1:/usr/sbin/cam/cam.py
-# scp /home/tif-awadh/Desktop/gitCodes/ARJUN/Final_Codes/allFrameCapture/cam.py root@192.168.8.1:/usr/sbin/cam/cam.py
+# scp /home/tif-awadh/Desktop/gitArjun/ARJUN/Final_Codes/allFrameCapture/cam.py root@192.168.8.1:/usr/sbin/cam/cam.py
 # scp /home/tif-awadh/Desktop/local_see3cam_test/device_code/microseconds/cam.py root@192.168.8.1:/usr/sbin/cam/cam.py
+
