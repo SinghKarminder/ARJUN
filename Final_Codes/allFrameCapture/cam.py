@@ -346,15 +346,17 @@ class MotionRecorder(object):
         
         hasMovement, img2, bbox, sizes = self.process_img(img.copy())
 
-        if not hasMovement: return
+        if FRAME_DEBUG:
+            img = img2
+            hasMovement = True
+        
+        elif CROP_IMAGES:     
+            # merge nearby boxes        
+            merged_bboxes, _ = MotionRecorder.merge_boxes(bbox,MotionRecorder.BOX_MERGE_MAX_DIST)
+            # twice to merge new overlapping ones
+            merged_bboxes, sizes = MotionRecorder.merge_boxes( merged_bboxes, 0 )
 
-        # merge nearby boxes        
-        merged_bboxes, _ = MotionRecorder.merge_boxes(bbox,MotionRecorder.BOX_MERGE_MAX_DIST)
-        # twice to merge new overlapping ones
-        merged_bboxes, sizes = MotionRecorder.merge_boxes( merged_bboxes, 0 )
-
-        # collate
-        img = MotionRecorder.Collate(img, merged_bboxes, sizes)
+            img = MotionRecorder.Collate(img, bbox, sizes)
 
         # get current time
         now = datetime.now()
