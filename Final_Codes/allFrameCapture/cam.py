@@ -11,6 +11,9 @@
 #use image crop
 CROP_IMAGES = True
 
+# merge nearby boxes
+MERGE_NEARBY = False
+
 # save CSV
 SAVE_CSV = False
 
@@ -350,11 +353,12 @@ class MotionRecorder(object):
             img = img2
             hasMovement = True
         
-        elif CROP_IMAGES:     
-            # merge nearby boxes        
-            merged_bboxes, _ = MotionRecorder.merge_boxes(bbox,MotionRecorder.BOX_MERGE_MAX_DIST)
-            # twice to merge new overlapping ones
-            merged_bboxes, sizes = MotionRecorder.merge_boxes( merged_bboxes, 0 )
+        elif CROP_IMAGES:
+            if MERGE_NEARBY:
+                # merge nearby boxes        
+                merged_bboxes, _ = MotionRecorder.merge_boxes(bbox,MotionRecorder.BOX_MERGE_MAX_DIST)
+                # twice to merge new overlapping ones
+                merged_bboxes, sizes = MotionRecorder.merge_boxes( merged_bboxes, 0 )
 
             img = MotionRecorder.Collate(img, bbox, sizes)
 
