@@ -386,6 +386,7 @@ class MotionRecorder(object):
             if FRAME_DEBUG:
                 debug_temp_image_name = f'{now.strftime("%d-%m-%Y_%H-%M-%S-%f")}_{DEVICE_SERIAL_ID}_debug.jpg'
                 cv2.imwrite(BUFFER_IMAGES_PATH + debug_temp_image_name, img2)
+                if LOG_DEBUG: print('Saved Image: ', debug_temp_image_name, len(bbox))
 
             cv2.imwrite(BUFFER_IMAGES_PATH + self.temp_image_name, img)
             if LOG_DEBUG: print('Saved Image: ', self.temp_image_name, len(bbox))
