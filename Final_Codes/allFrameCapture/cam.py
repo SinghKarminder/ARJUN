@@ -291,7 +291,7 @@ class MotionRecorder(object):
     def Collate(img, bboxes, sizes):
         '''Crop detected regions and merge as single image'''
         
-        if len(bboxes) == 0 or len(bboxes) > 40:
+        if len(bboxes) == 0 or len(bboxes) > 50:
             print("Got 0 or A lot of boxes, try combining, returning.... This takes a lot of time....")
             return img
 
