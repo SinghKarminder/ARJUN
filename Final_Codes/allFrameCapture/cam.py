@@ -1,5 +1,5 @@
 '''
-@camera_type: Fixed Focus
+@camera_type: Fixed/Auto Focus
 @abstract: frames individually, mean count, csv .... 
 @dscp:  this code creates csv every minute with mean_count of every seconds        
         also saves images in which movement is detected
@@ -8,7 +8,7 @@
 @author: vinay
 '''
 
-#use image crop
+# use image crop
 CROP_IMAGES = True
 
 # merge nearby boxes
@@ -25,7 +25,7 @@ ALLOW_NO_MOVEMENT_FRAME = False
 # use this to show on console when files are created
 LOG_DEBUG = True
 
-#us RGB plane normalization ?
+#use RGB plane normalization
 USE_RGB_NORM = False
 #---------------------
 
@@ -33,15 +33,16 @@ import cv2
 import numpy as np
 from datetime import datetime
 import json
-import logging as log
 import csv
 import subprocess
 #pip install rectangle-packer
 import rpack
 from enum import Enum
 
-log.basicConfig(filename='/var/tmp/cam.log', filemode='w', level=log.INFO, format='[%(asctime)s]- %(message)s', datefmt='%d-%m-%Y %I:%M:%S %p')
-log.info("Cam script started..")
+
+if LOG_DEBUG: print("Cam script started..")
+
+# get configuration data
 with open(f"/etc/entomologist/ento.conf",'r') as file:
     data=json.load(file)
 
@@ -49,13 +50,16 @@ DEVICE_SERIAL_ID = data["device"]["SERIAL_ID"]
 BUFFER_IMAGES_PATH = data["device"]["STORAGE_PATH"]
 BUFFER_COUNT_PATH = data["device"]["COUNT_STORAGE_PATH"]
 
-class ErrorCodes(Enum):
+
+# general error codes
+class CollatingErrorCodes(Enum):
     TOO_MANY_BOXES = 0,
     MERGE_IMAGE_TOO_BIG = 1,
     NO_MOTION = 2,
     COLLATE_OK = 3
 
 
+# the main class
 class MotionRecorder(object):
     
     # for Fixedfocus
@@ -77,39 +81,43 @@ class MotionRecorder(object):
     #VID_RESO, FPS = (1280,720), 30
     #VID_RESO, FPS = (640, 480), 120
 
-
-    # video capture : from device
-    cap = None
-    #cap = cv2.VideoCapture(f"v4l2src device/dev/video2 ! video/x-raw, width={VID_RESO[0]}, height={VID_RESO[1]}, framerate={FPS}/1, format=(string)UYVY ! decodebin ! videoconvert ! appsink", cv2.CAP_GSTREAMER)
-    #cap = cv2.VideoCapture("videotestsrc ! video/x-raw, format=I420, width=640, height=480 ! vpuenc_h264 ! appsink",cv2.CAP_GSTREAMER)
-
     # the background Subractors
     subtractor = cv2.createBackgroundSubtractorMOG2(detectShadows=False)
-    #subtractor = cv2.createBackgroundSubtractorKNN()
 
     # FourCC is a 4-byte code used to specify the video codec. The list of available codes can be found in fourcc.org.
-    fourcc = cv2.VideoWriter_fourcc(*'DIVX')     # for windows
+    fourcc = cv2.VideoWriter_fourcc(*'DIVX')
     
     # don't exceed bounding boxes > 1/4 the area of actual resolution
     # even this big is unrealistic for a bee
-    CONTOUR_AREA_LIMIT = VID_RESO[0]*VID_RESO[1]/4    
+    CONTOUR_AREA_LIMIT = VID_RESO[0]*VID_RESO[1]/4
 
+    # skip a few frames for Background subtractor to get ready
     SKIP_FRAMES = 5
 
-    BOX_MERGE_MAX_DIST = 80
+    # set offset (in pixels) for merging nearby boxes
+    BOX_MERGE_MAX_DIST = 40
+
+    # set the maximum number of boxes to allow collating
     MAX_BOX_COUNT_LIMIT = 50
     
-    img_mean_persec_list = []    
-    img_count_sum = 0
-    img_count = 0
-    # for storing frames as collection of 1 sec
-    last_minute = None
-    last_second = None
 
-    def _init_(self):
-        pass
+    def __init__(self):
+         # temp data structures
+        self._img_mean_persec_list = []    
+        self._img_count_sum = 0
+        self._img_count = 0
+        self._last_minute = None
+        self._last_second = None
+        self._temp_image_name = None
+
+        # video capture : from device
+        self.cap = None
 
     def get_cam_deviceID(self, VID_RESO, FPS):
+        '''checks for all connected camera devices and return the camera id
+        vid0,vid1, etc. for the specified resolution
+        
+        -1 , if no deviceFound'''
 
         # fetch which ever camera is working
         for i in range(0,3):
@@ -133,8 +141,10 @@ class MotionRecorder(object):
                 except:
                     pass
 
-            # get camera output
-            camera = cv2.VideoCapture(f"v4l2src device=/dev/video{i} ! video/x-raw, width={VID_RESO[0]}, height={VID_RESO[1]}, framerate={FPS}/1, format=(string)UYVY ! decodebin ! videoconvert ! appsink", cv2.CAP_GSTREAMER)
+            # start the device
+            camera = cv2.VideoCapture(f"v4l2src device=/dev/video{i} ! video/x-raw, width={VID_RESO[0]}, \
+                                      height={VID_RESO[1]}, framerate={FPS}/1, format=(string)UYVY ! decodebin \
+                                      ! videoconvert ! appsink", cv2.CAP_GSTREAMER)
             while True:
                 success, frame = camera.read()  # read the camera frame
                 camera.release()
@@ -211,7 +221,7 @@ class MotionRecorder(object):
 
             if aspectRatio > 5: continue
 
-            if self.CONTOUR_AREA_LIMIT >= area:                
+            if MotionRecorder.CONTOUR_AREA_LIMIT >= area:                
                 x = 0 if x < 0 else MotionRecorder.VID_RESO[0] if x > MotionRecorder.VID_RESO[0] else x
                 y = 0 if y < 0 else MotionRecorder.VID_RESO[1] if y > MotionRecorder.VID_RESO[1] else y
                 w = MotionRecorder.VID_RESO[0]-x if x+w > MotionRecorder.VID_RESO[0] else w
@@ -236,7 +246,7 @@ class MotionRecorder(object):
 
             if aspectRatio > 5: continue
 
-            if self.CONTOUR_AREA_LIMIT >= area:
+            if MotionRecorder.CONTOUR_AREA_LIMIT >= area:
                 # remove red countous
                 enclosedRed = []
                 enclosedSizesRed = []
@@ -273,7 +283,7 @@ class MotionRecorder(object):
 
             cv2.putText(store,"Number of objects: " + str(len(detections)), (10,50), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1, cv2.LINE_8)
 
-        hasMovement = (len(detections) > 0) #and (len(detections) < MotionRecorder.MAX_BOX_COUNT_LIMIT)
+        hasMovement = (len(detections) > 0)
 
         return hasMovement, frame, detections, sizes
 
@@ -312,65 +322,43 @@ class MotionRecorder(object):
 
 
     def Collate(img, bboxes, sizes):
-        '''Crop detected regions and merge as single image'''
+        '''Crop detected regions and merge as single image
+        returns collatedImg, ErroCodes'''
         
         if len(bboxes) == 0:
             print("Got 0 boxes, won't save.")
-            return img, ErrorCodes.NO_MOTION
+            return img, CollatingErrorCodes.NO_MOTION
         
         if len(bboxes) > MotionRecorder.MAX_BOX_COUNT_LIMIT:
             print(f"Got a lot of boxes > {MotionRecorder.MAX_BOX_COUNT_LIMIT}, won't combine... won't save.")
-            return img, ErrorCodes.TOO_MANY_BOXES
+            return img, CollatingErrorCodes.TOO_MANY_BOXES
 
-        #get new positions
-        #area = sum([i[0]*i[1] for i in sizes])
-        #print(area)50,
-        #dimArea = int(area**0.5) + 1
-        pos = rpack.pack(sizes)# dimArea*2, dimArea*2)
-        #print(type(pos))
-
+        #get new positions        
+        pos = rpack.pack(sizes)
         sizes = np.array(sizes)
         positions = np.array(pos)
 
-        #print(positions)
-
-        # get maxY and maxX 
+        # get maxY and maxX ("req"uired for creating empty image)
         reqH = max(sizes+positions, key=lambda x: x[0])[0]
         reqW = max(sizes+positions, key=lambda x: x[1])[1]
         
         reqH = reqW = max(reqW, reqH)
-        # no indent
+
         if reqH >= MotionRecorder.VID_RESO[0]:
             print("Exceeds original size after collating, saving original captured image.")
-            return img, ErrorCodes.MERGE_IMAGE_TOO_BIG
-
-        #print('NewImageDims:',reqH, reqW)
+            return img, CollatingErrorCodes.MERGE_IMAGE_TOO_BIG
 
         newImg = np.zeros((reqH,reqW,3), np.uint8)
-        #newImg *= 255
-        #print(newImg.shape)
-
-
+        
         for i in range(len(bboxes)):
-            # copy pixels from img to newImg
-            #print('Cropping the bee...')
-            #print(len(sizes), sizes)
-            #print(len(positions) ,positions)
-            #print(bboxes)
-            #print('-'*50)
+            # copy pixels from img to newImg            
             y1, x1 = bboxes[i][0:2]
             h, l = sizes[i]
-
             y,x = positions[i]
-            #print('PosOn_NewFrame:',x,x+l,y,y+h)
-            #print('PosFrom_Frame :',x1,x1+l,y1,y1+h)
-            #print(newImg.shape)
-            #print(img.shape)
+
             newImg[x:x+l,y:y+h] = img[x1:x1+l,y1:y1+h]
         
-        #cv2.imshow("ImgOut", newImg)
-        
-        return newImg, ErrorCodes.COLLATE_OK
+        return newImg, CollatingErrorCodes.COLLATE_OK
 
     def start_storing_img(self, img):
         if LOG_DEBUG: print('-----')
@@ -387,11 +375,13 @@ class MotionRecorder(object):
         if CROP_IMAGES:
             if MERGE_NEARBY:
                 # merge nearby boxes
-                if LOG_DEBUG: print("Initial Merge Attempt. of ", len(bbox), "boxes")
-                merged_bboxes1 , _ = MotionRecorder.merge_boxes(bbox,MotionRecorder.BOX_MERGE_MAX_DIST)
-                # twice to merge new overlapping ones
-                if LOG_DEBUG: print("Final Merge Attempt. of ",len(merged_bboxes1), "boxes")
+                if LOG_DEBUG: print("Merging boxcount:",len(bbox))
+                merged_bboxes1 , _ = MotionRecorder.merge_boxes(bbox, MotionRecorder.BOX_MERGE_MAX_DIST)
+                if LOG_DEBUG: print("After Merging...boxcount:",len(merged_bboxes1))
+
+                # twice to merge new overlapping ones                
                 merged_bboxes, sizes = MotionRecorder.merge_boxes( merged_bboxes1, 0 )
+                if LOG_DEBUG: print("After Merging Overlaps...boxcount:",len(merged_bboxes1))
 
                 bbox = merged_bboxes
 
@@ -401,22 +391,22 @@ class MotionRecorder(object):
         now = datetime.now()
 
         # if change in minutes
-        if self.last_minute == None:
-            self.last_minute = now.minute
-        elif self.last_minute != now.minute:
+        if self._last_minute == None:
+            self._last_minute = now.minute
+        elif self._last_minute != now.minute:
             # if sec changes, save last second count data            
             if SAVE_CSV: self.save_csv(now)
             #reset all
-            self.last_minute = now.minute
-            self.img_mean_persec_list = []
-            self.img_count_sum = 0
-            self.img_count = 0
+            self._last_minute = now.minute
+            self._img_mean_persec_list = []
+            self._img_count_sum = 0
+            self._img_count  = 0
 
         
         if hasMovement:
 
             # save image file
-            self.temp_image_name = f'{now.strftime("%d-%m-%Y_%H-%M-%S-%f")}_{DEVICE_SERIAL_ID}.jpg'
+            self._temp_image_name = f'{now.strftime("%d-%m-%Y_%H-%M-%S-%f")}_{DEVICE_SERIAL_ID}.jpg'
             #self.save_recording(img)
             if FRAME_DEBUG:
                 for cntr in bbox:
@@ -429,73 +419,69 @@ class MotionRecorder(object):
 
                 
 
-            cv2.imwrite(BUFFER_IMAGES_PATH + self.temp_image_name, img)
-            if errorCode == ErrorCodes.COLLATE_OK:
-                if LOG_DEBUG: print('Saved Image: ', self.temp_image_name, len(bbox))
-            elif errorCode == ErrorCodes.MERGE_IMAGE_TOO_BIG:
-                if LOG_DEBUG: print('Saved Image: ', self.temp_image_name, 1)
+            cv2.imwrite(BUFFER_IMAGES_PATH + self._temp_image_name, img)
+            if errorCode == CollatingErrorCodes.COLLATE_OK:
+                if LOG_DEBUG: print('Saved Image: ', self._temp_image_name, len(bbox))
+            elif errorCode == CollatingErrorCodes.MERGE_IMAGE_TOO_BIG:
+                if LOG_DEBUG: print('Saved Image: ', self._temp_image_name, 1)
 
             # assign count data                        
-            self.img_count_sum += len(bbox)
-            self.img_count += 1
+            self._img_count_sum += len(bbox)
+            self._img_count  += 1
 
 
         # if a change in second then append mean
         # save mean every second
-        if self.last_second == None:
-            self.last_second = now.second
-        elif self.last_second != now.second:
+        if self._last_second == None:
+            self._last_second = now.second
+        elif self._last_second != now.second:
             # if sec changes, save last second count data            
             
-            if self.img_count != 0:
-                mean_count_persec = self.img_count_sum // self.img_count
+            if self._img_count != 0:
+                mean_count_persec = self._img_count_sum // self._img_count 
             else:
                 mean_count_persec = 0
 
-            self.img_mean_persec_list.append((DEVICE_SERIAL_ID, now.strftime("%d-%m-%Y_%H-%M-%S"), mean_count_persec))
+            self._img_mean_persec_list.append((DEVICE_SERIAL_ID, now.strftime("%d-%m-%Y_%H-%M-%S"), mean_count_persec))
             
             #reset all
-            self.last_second = now.second                
-            self.img_count_sum = 0
-            self.img_count = 0
+            self._last_second = now.second                
+            self._img_count_sum = 0
+            self._img_count  = 0
             
     
     def save_csv(self, timeNow):
         # save as count_timeFrame_deviceID_countMeanInt.csv
         # save as count_DD-MM-YYYY_hh-mm_DOxxx_XXXX.csv
 
-        csvName = f'count_{timeNow.strftime("%d-%m-%Y_%H")}-{self.last_minute}_{DEVICE_SERIAL_ID}.csv'
+        csvName = f'count_{timeNow.strftime("%d-%m-%Y_%H")}-{self._last_minute}_{DEVICE_SERIAL_ID}.csv'
         with open(BUFFER_COUNT_PATH + csvName, 'w',  newline='') as csvFile:
             csvwriter = csv.writer(csvFile)
             # header
             csvwriter.writerow(["device_id","time_frame","insect_count"])        
             # data 
-            csvwriter.writerows(self.img_mean_persec_list)
+            csvwriter.writerows(self._img_mean_persec_list)
     
-        log.info("Video bbox count CSV crealog.info("")ted and saved -> "+csvName)
+        if LOG_DEBUG: print("Video bbox count CSV creaif LOG_DEBUG: print("")ted and saved -> "+csvName)
         if LOG_DEBUG: print('CSV saved', csvName)
             
-            
-
 
     def save_recording(self, image):
         pass
-        #cv2.imwrite(BUFFER_IMAGES_PATH+self.temp_image_name, image)
+        #cv2.imwrite(BUFFER_IMAGES_PATH+self._temp_image_name, image)
 
             
     def start(self):
         camID = -1
         while camID == -1:
-            camID = self.get_cam_deviceID(self.VID_RESO, self.FPS)
-        self.cap = cv2.VideoCapture(f"v4l2src device=/dev/video{camID} ! video/x-raw, width={self.VID_RESO[0]}, height={self.VID_RESO[1]}, framerate={self.FPS}/1, format=(string)UYVY ! decodebin ! videoconvert ! appsink", cv2.CAP_GSTREAMER)
-        log.info("Cam started functioning")
+            camID = self.get_cam_deviceID(MotionRecorder.VID_RESO, MotionRecorder.FPS)
+        self.cap = cv2.VideoCapture(f"v4l2src device=/dev/video{camID} ! video/x-raw, width={MotionRecorder.VID_RESO[0]}, height={MotionRecorder.VID_RESO[1]}, framerate={MotionRecorder.FPS}/1, format=(string)UYVY ! decodebin ! videoconvert ! appsink", cv2.CAP_GSTREAMER)
+        if LOG_DEBUG: print("Cam started functioning")
 
         skipCount = 0
         
         while True :
             available, frame = self.cap.read()
-
-
 
             if available and skipCount > MotionRecorder.SKIP_FRAMES:
                 self.start_storing_img(frame)
@@ -515,13 +501,11 @@ class MotionRecorder(object):
 
 # main
 MR = MotionRecorder()
-log.info("Object created")
+if LOG_DEBUG: print("MotionRecorder Object created")
 MR.start()
 MR.end()
-log.info("Script ended")
+if LOG_DEBUG: print("MotionRecorder Script Ended")
 
 # to send this file over ssh to device 
 # scp {source_path} root@192.168.8.1:/usr/sbin/cam/cam.py
-# scp /home/tif-awadh/Desktop/gitArjun/ARJUN/Final_Codes/allFrameCapture/cam.py root@192.168.8.1:/usr/sbin/cam/cam.py
-# scp /home/tif-awadh/Desktop/gitARJUN/ARJUN/Final_Codes/allFrameCapture/cam.py root@192.168.8.1:/usr/sbin/cam/cam.py
 
