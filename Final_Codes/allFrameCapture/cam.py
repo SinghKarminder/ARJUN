@@ -19,6 +19,8 @@ SAVE_CSV = False
 
 # use this to display bounding boxes
 FRAME_DEBUG = True
+# allow 0 movement frames to be saved
+ALLOW_NO_MOVEMENT_FRAME = False
 
 # use this to show on console when files are created
 LOG_DEBUG = True
@@ -361,7 +363,7 @@ class MotionRecorder(object):
 
         if FRAME_DEBUG:
             img = img2
-            hasMovement = True
+            if MotionRecorder.ALLOW_NO_MOVEMENT_FRAME : hasMovement = True
         
         elif CROP_IMAGES:
             if MERGE_NEARBY:
