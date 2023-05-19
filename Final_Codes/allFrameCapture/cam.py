@@ -82,11 +82,14 @@ class MotionRecorder(object):
     # FourCC is a 4-byte code used to specify the video codec. The list of available codes can be found in fourcc.org.
     fourcc = cv2.VideoWriter_fourcc(*'DIVX')     # for windows
     
-    CONTOUR_AREA_LIMIT = 100*100
+    # don't exceed bounding boxes > 1/4 the area of actual resolution
+    # even this big is unrealistic for a bee
+    CONTOUR_AREA_LIMIT = VID_RESO[0]*VID_RESO[1]/4    
+
     SKIP_FRAMES = 5
 
     BOX_MERGE_MAX_DIST = 30
-    MAX_BOX_COUNT_LIMIT = 30
+    MAX_BOX_COUNT_LIMIT = 50
     
     img_mean_persec_list = []    
     img_count_sum = 0
@@ -356,16 +359,12 @@ class MotionRecorder(object):
         
         hasMovement, img2, bbox, sizes = self.process_img(img.copy())
 
-        # some important log
-        if LOG_DEBUG:
-            if len(bbox) == 1:
-                print('Wrong boxes:',bbox)
-
+        debugImg = None
         if FRAME_DEBUG:
-            img = img2
+            debugImg = img2
             if ALLOW_NO_MOVEMENT_FRAME : hasMovement = True
         
-        elif CROP_IMAGES:
+        if CROP_IMAGES:
             if MERGE_NEARBY:
                 # merge nearby boxes        
                 merged_bboxes, _ = MotionRecorder.merge_boxes(bbox,MotionRecorder.BOX_MERGE_MAX_DIST)
@@ -397,7 +396,7 @@ class MotionRecorder(object):
             #self.save_recording(img)
             if FRAME_DEBUG:
                 debug_temp_image_name = f'{now.strftime("%d-%m-%Y_%H-%M-%S-%f")}_{DEVICE_SERIAL_ID}_debug.jpg'
-                cv2.imwrite(BUFFER_IMAGES_PATH + debug_temp_image_name, img2)
+                cv2.imwrite(BUFFER_IMAGES_PATH + debug_temp_image_name, debugImg)
                 if LOG_DEBUG: print('Saved Image: ', debug_temp_image_name, len(bbox))
 
             cv2.imwrite(BUFFER_IMAGES_PATH + self.temp_image_name, img)
