@@ -319,7 +319,7 @@ class MotionRecorder(object):
         reqH = reqW = max(reqW, reqH)
         # no indent
         if reqH >= MotionRecorder.VID_RESO[0]:
-            print("Exceeds original size, saving original captured image.")
+            print("Exceeds original size, saving original captured image.", len(bboxes))
             return img
 
         #print('NewImageDims:',reqH, reqW)
