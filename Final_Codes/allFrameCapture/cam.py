@@ -12,7 +12,7 @@
 CROP_IMAGES = True
 
 # merge nearby boxes
-MERGE_NEARBY = False
+MERGE_NEARBY = True
 
 # save CSV
 SAVE_CSV = False
@@ -38,6 +38,7 @@ import csv
 import subprocess
 #pip install rectangle-packer
 import rpack
+from enum import Enum
 
 log.basicConfig(filename='/var/tmp/cam.log', filemode='w', level=log.INFO, format='[%(asctime)s]- %(message)s', datefmt='%d-%m-%Y %I:%M:%S %p')
 log.info("Cam script started..")
@@ -47,6 +48,13 @@ with open(f"/etc/entomologist/ento.conf",'r') as file:
 DEVICE_SERIAL_ID = data["device"]["SERIAL_ID"]
 BUFFER_IMAGES_PATH = data["device"]["STORAGE_PATH"]
 BUFFER_COUNT_PATH = data["device"]["COUNT_STORAGE_PATH"]
+
+class ErrorCodes(Enum):
+    TOO_MANY_BOXES = 0,
+    MERGE_IMAGE_TOO_BIG = 1,
+    NO_MOTION = 2,
+    COLLATE_OK = 3
+
 
 class MotionRecorder(object):
     
@@ -88,7 +96,7 @@ class MotionRecorder(object):
 
     SKIP_FRAMES = 5
 
-    BOX_MERGE_MAX_DIST = 30
+    BOX_MERGE_MAX_DIST = 80
     MAX_BOX_COUNT_LIMIT = 50
     
     img_mean_persec_list = []    
@@ -199,6 +207,10 @@ class MotionRecorder(object):
             x,y = x-5,y-5
             w,h = w+10,h+10
 
+            aspectRatio = w/h if w>h else h/w
+
+            if aspectRatio > 5: continue
+
             if self.CONTOUR_AREA_LIMIT >= area:                
                 x = 0 if x < 0 else MotionRecorder.VID_RESO[0] if x > MotionRecorder.VID_RESO[0] else x
                 y = 0 if y < 0 else MotionRecorder.VID_RESO[1] if y > MotionRecorder.VID_RESO[1] else y
@@ -219,6 +231,10 @@ class MotionRecorder(object):
             x, y, w, h = cv2.boundingRect(cnt)            
             x,y = x-5,y-5
             w,h = w+10,h+10
+
+            aspectRatio = w/h if w>h else h/w
+
+            if aspectRatio > 5: continue
 
             if self.CONTOUR_AREA_LIMIT >= area:
                 # remove red countous
@@ -257,12 +273,13 @@ class MotionRecorder(object):
 
             cv2.putText(store,"Number of objects: " + str(len(detections)), (10,50), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1, cv2.LINE_8)
 
-        hasMovement = (len(detections) > 0) and (len(detections) < MotionRecorder.MAX_BOX_COUNT_LIMIT)
+        hasMovement = (len(detections) > 0) #and (len(detections) < MotionRecorder.MAX_BOX_COUNT_LIMIT)
 
         return hasMovement, frame, detections, sizes
 
     def merge_boxes(boxes, DIST):        
         merged_boxes = []
+        sizes = []
 
         for box in boxes:
             # Create a temp copy of box
@@ -299,15 +316,15 @@ class MotionRecorder(object):
         
         if len(bboxes) == 0:
             print("Got 0 boxes, won't save.")
-            return img
+            return img, ErrorCodes.NO_MOTION
         
         if len(bboxes) > MotionRecorder.MAX_BOX_COUNT_LIMIT:
             print(f"Got a lot of boxes > {MotionRecorder.MAX_BOX_COUNT_LIMIT}, won't combine... won't save.")
-            return img
+            return img, ErrorCodes.TOO_MANY_BOXES
 
         #get new positions
         #area = sum([i[0]*i[1] for i in sizes])
-        #print(area)
+        #print(area)50,
         #dimArea = int(area**0.5) + 1
         pos = rpack.pack(sizes)# dimArea*2, dimArea*2)
         #print(type(pos))
@@ -324,8 +341,8 @@ class MotionRecorder(object):
         reqH = reqW = max(reqW, reqH)
         # no indent
         if reqH >= MotionRecorder.VID_RESO[0]:
-            print("Exceeds original size, saving original captured image.", len(bboxes))
-            return img
+            print("Exceeds original size after collating, saving original captured image.")
+            return img, ErrorCodes.MERGE_IMAGE_TOO_BIG
 
         #print('NewImageDims:',reqH, reqW)
 
@@ -353,25 +370,32 @@ class MotionRecorder(object):
         
         #cv2.imshow("ImgOut", newImg)
         
-        return newImg
+        return newImg, ErrorCodes.COLLATE_OK
 
     def start_storing_img(self, img):
-        
+        if LOG_DEBUG: print('-----')
+
         hasMovement, img2, bbox, sizes = self.process_img(img.copy())
+        errorCode = None
 
         debugImg = None
+        countBoxesBeforeMerge = len(bbox)
         if FRAME_DEBUG:
             debugImg = img2
             if ALLOW_NO_MOVEMENT_FRAME : hasMovement = True
         
         if CROP_IMAGES:
             if MERGE_NEARBY:
-                # merge nearby boxes        
-                merged_bboxes, _ = MotionRecorder.merge_boxes(bbox,MotionRecorder.BOX_MERGE_MAX_DIST)
+                # merge nearby boxes
+                if LOG_DEBUG: print("Initial Merge Attempt. of ", len(bbox), "boxes")
+                merged_bboxes1 , _ = MotionRecorder.merge_boxes(bbox,MotionRecorder.BOX_MERGE_MAX_DIST)
                 # twice to merge new overlapping ones
-                merged_bboxes, sizes = MotionRecorder.merge_boxes( merged_bboxes, 0 )
+                if LOG_DEBUG: print("Final Merge Attempt. of ",len(merged_bboxes1), "boxes")
+                merged_bboxes, sizes = MotionRecorder.merge_boxes( merged_bboxes1, 0 )
 
-            img = MotionRecorder.Collate(img, bbox, sizes)
+                bbox = merged_bboxes
+
+            img, errorCode = MotionRecorder.Collate(img, bbox, sizes)
 
         # get current time
         now = datetime.now()
@@ -395,12 +419,21 @@ class MotionRecorder(object):
             self.temp_image_name = f'{now.strftime("%d-%m-%Y_%H-%M-%S-%f")}_{DEVICE_SERIAL_ID}.jpg'
             #self.save_recording(img)
             if FRAME_DEBUG:
+                for cntr in bbox:
+                    x,y,w,h = cntr
+                    cv2.rectangle(debugImg, (x, y), (x + w, y + h), (0,0, 255), 1)
+
                 debug_temp_image_name = f'{now.strftime("%d-%m-%Y_%H-%M-%S-%f")}_{DEVICE_SERIAL_ID}_debug.jpg'
                 cv2.imwrite(BUFFER_IMAGES_PATH + debug_temp_image_name, debugImg)
-                if LOG_DEBUG: print('Saved Image: ', debug_temp_image_name, len(bbox))
+                if LOG_DEBUG: print('Saved Image: ', debug_temp_image_name, countBoxesBeforeMerge)
+
+                
 
             cv2.imwrite(BUFFER_IMAGES_PATH + self.temp_image_name, img)
-            if LOG_DEBUG: print('Saved Image: ', self.temp_image_name, len(bbox))
+            if errorCode == ErrorCodes.COLLATE_OK:
+                if LOG_DEBUG: print('Saved Image: ', self.temp_image_name, len(bbox))
+            elif errorCode == ErrorCodes.MERGE_IMAGE_TOO_BIG:
+                if LOG_DEBUG: print('Saved Image: ', self.temp_image_name, 1)
 
             # assign count data                        
             self.img_count_sum += len(bbox)
