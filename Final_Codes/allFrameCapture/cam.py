@@ -189,13 +189,12 @@ class MotionRecorder(object):
         sizesRed = []
 
         for cnt in contours:
-            #area = cv2.contourArea(cnt)            
-            x, y, w, h = cv2.boundingRect(cnt)
-            area = w*h
+            area = cv2.contourArea(cnt)
+            x, y, w, h = cv2.boundingRect(cnt)            
             x,y = x-5,y-5
             w,h = w+10,h+10
 
-            if self.CONTOUR_AREA_LIMIT < area:                
+            if self.CONTOUR_AREA_LIMIT >= area:                
                 x = 0 if x < 0 else MotionRecorder.VID_RESO[0] if x > MotionRecorder.VID_RESO[0] else x
                 y = 0 if y < 0 else MotionRecorder.VID_RESO[1] if y > MotionRecorder.VID_RESO[1] else y
                 w = MotionRecorder.VID_RESO[0]-x if x+w > MotionRecorder.VID_RESO[0] else w
@@ -210,13 +209,13 @@ class MotionRecorder(object):
         # need for closepacking of cropped images
         sizes = []
 
-        for cnt in contours:                                    
-            x, y, w, h = cv2.boundingRect(cnt)
-            area = w*h
+        for cnt in contours:
+            area = cv2.contourArea(cnt)
+            x, y, w, h = cv2.boundingRect(cnt)            
             x,y = x-5,y-5
             w,h = w+10,h+10
 
-            if self.CONTOUR_AREA_LIMIT < area:
+            if self.CONTOUR_AREA_LIMIT >= area:
                 # remove red countous
                 enclosedRed = []
                 enclosedSizesRed = []
