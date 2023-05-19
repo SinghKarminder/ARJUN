@@ -363,7 +363,7 @@ class MotionRecorder(object):
 
         if FRAME_DEBUG:
             img = img2
-            if MotionRecorder.ALLOW_NO_MOVEMENT_FRAME : hasMovement = True
+            if ALLOW_NO_MOVEMENT_FRAME : hasMovement = True
         
         elif CROP_IMAGES:
             if MERGE_NEARBY:
