@@ -84,6 +84,7 @@ class MotionRecorder(object):
     SKIP_FRAMES = 5
 
     BOX_MERGE_MAX_DIST = 30
+    MAX_BOX_COUNT_LIMIT = 30
     
     img_mean_persec_list = []    
     img_count_sum = 0
@@ -251,7 +252,7 @@ class MotionRecorder(object):
 
             cv2.putText(store,"Number of objects: " + str(len(detections)), (10,50), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1, cv2.LINE_8)
 
-        hasMovement = len(detections) > 0 and len(detections) < 50
+        hasMovement = (len(detections) > 0) and (len(detections) < MotionRecorder.MAX_BOX_COUNT_LIMIT)
 
         return hasMovement, frame, detections, sizes
 
@@ -291,8 +292,12 @@ class MotionRecorder(object):
     def Collate(img, bboxes, sizes):
         '''Crop detected regions and merge as single image'''
         
-        if len(bboxes) == 0 or len(bboxes) > 50:
-            print("Got 0 or A lot of boxes, try combining, returning.... This takes a lot of time....")
+        if len(bboxes) == 0:
+            print("Got 0 boxes, won't save.")
+            return img
+        
+        if len(bboxes) > MotionRecorder.MAX_BOX_COUNT_LIMIT:
+            print(f"Got a lot of boxes > {MotionRecorder.MAX_BOX_COUNT_LIMIT}, won't combine... won't save.")
             return img
 
         #get new positions
@@ -314,7 +319,7 @@ class MotionRecorder(object):
         reqH = reqW = max(reqW, reqH)
         # no indent
         if reqH >= MotionRecorder.VID_RESO[0]:
-            print("Exceeds original size, returning")
+            print("Exceeds original size, saving original captured image.")
             return img
 
         #print('NewImageDims:',reqH, reqW)
