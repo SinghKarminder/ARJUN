@@ -18,7 +18,7 @@ MERGE_NEARBY = False
 SAVE_CSV = False
 
 # use this to display bounding boxes
-FRAME_DEBUG = False
+FRAME_DEBUG = True
 
 # use this to show on console when files are created
 LOG_DEBUG = True
@@ -80,7 +80,7 @@ class MotionRecorder(object):
     # FourCC is a 4-byte code used to specify the video codec. The list of available codes can be found in fourcc.org.
     fourcc = cv2.VideoWriter_fourcc(*'DIVX')     # for windows
     
-    CONTOUR_AREA_LIMIT = 10
+    CONTOUR_AREA_LIMIT = 100*100
     SKIP_FRAMES = 5
 
     BOX_MERGE_MAX_DIST = 30
@@ -189,8 +189,9 @@ class MotionRecorder(object):
         sizesRed = []
 
         for cnt in contours:
-            area = cv2.contourArea(cnt)            
+            #area = cv2.contourArea(cnt)            
             x, y, w, h = cv2.boundingRect(cnt)
+            area = w*h
             x,y = x-5,y-5
             w,h = w+10,h+10
 
@@ -209,9 +210,9 @@ class MotionRecorder(object):
         # need for closepacking of cropped images
         sizes = []
 
-        for cnt in contours:            
-            area = cv2.contourArea(cnt)            
+        for cnt in contours:                                    
             x, y, w, h = cv2.boundingRect(cnt)
+            area = w*h
             x,y = x-5,y-5
             w,h = w+10,h+10
 
@@ -354,6 +355,11 @@ class MotionRecorder(object):
         
         hasMovement, img2, bbox, sizes = self.process_img(img.copy())
 
+        # some important log
+        if LOG_DEBUG:
+            if len(bbox) == 1:
+                print('Wrong boxes:',bbox)
+
         if FRAME_DEBUG:
             img = img2
             hasMovement = True
@@ -484,5 +490,5 @@ log.info("Script ended")
 # to send this file over ssh to device 
 # scp {source_path} root@192.168.8.1:/usr/sbin/cam/cam.py
 # scp /home/tif-awadh/Desktop/gitArjun/ARJUN/Final_Codes/allFrameCapture/cam.py root@192.168.8.1:/usr/sbin/cam/cam.py
-# scp /home/tif-awadh/Desktop/local_see3cam_test/device_code/microseconds/cam.py root@192.168.8.1:/usr/sbin/cam/cam.py
+# scp /home/tif-awadh/Desktop/gitARJUN/ARJUN/Final_Codes/allFrameCapture/cam.py root@192.168.8.1:/usr/sbin/cam/cam.py
 
