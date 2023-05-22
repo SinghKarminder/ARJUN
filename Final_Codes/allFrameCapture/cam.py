@@ -37,7 +37,7 @@ import csv
 import subprocess
 #pip install rectangle-packer
 import rpack
-from enum import Enum
+from enum import Enum, auto
 
 
 if LOG_DEBUG: print("Cam script started..")
@@ -53,10 +53,10 @@ BUFFER_COUNT_PATH = data["device"]["COUNT_STORAGE_PATH"]
 
 # general error codes
 class CollatingErrorCodes(Enum):
-    TOO_MANY_BOXES = 0,
-    MERGE_IMAGE_TOO_BIG = 1,
-    NO_MOTION = 2,
-    COLLATE_OK = 3
+    TOO_MANY_BOXES = auto(),
+    MERGE_IMAGE_TOO_BIG = auto(),
+    NO_MOTION = auto(),
+    COLLATE_OK = auto()
 
 
 # the main class
@@ -102,7 +102,7 @@ class MotionRecorder(object):
     
 
     def __init__(self):
-         # temp data structures
+        # temp data structures
         self._img_mean_persec_list = []    
         self._img_count_sum = 0
         self._img_count = 0
@@ -364,8 +364,8 @@ class MotionRecorder(object):
         if LOG_DEBUG: print('-----')
 
         hasMovement, img2, bbox, sizes = self.process_img(img.copy())
+        
         errorCode = None
-
         debugImg = None
         countBoxesBeforeMerge = len(bbox)
         if FRAME_DEBUG:
